@@ -1,49 +1,61 @@
-import tkinter as tk
+import mplfinance as mpf
+from binance.client import Client
+import datetime as dt
+import pandas as pd
 
-def calculate():
-    try:
-        result = eval(entry.get())  # Evaluate the expression entered in the entry widget
-        result_label.config(text="Result: " + str(result))  # Update the label with the result
-    except Exception as e:
-        result_label.config(text="Error: " + str(e))  # Display error message if evaluation fails
+# Binance API credentials
+api_key = "HCjELFxQ0A49VqkckjWsZ8OoyKQDmLRWnybC0Jv6seUhdGCJglSNWNG90021jc3n"
+api_secret = "gzbVrIp01e8gHRqgu4RICUrknZUWm9J6TBdeNDitpX4LJ00Z4gArF3PgxQZ73ujl"
+client = Client(api_key, api_secret)
 
-# Create the main tkinter window
-window = tk.Tk()
-window.title("Simple Calculator")
-window.geometry("300x400")  # Set window size
+# Define symbol, interval, and time range
+symbol = "BTCUSDT"
+interval = "15m"
+end_time = dt.datetime.now()
+start_time = end_time - dt.timedelta(hours=24)
 
-# Create an entry widget for user input
-entry = tk.Entry(window, width=30, borderwidth=5, font=("Arial", 14))
-entry.grid(row=0, column=0, columnspan=4, padx=10, pady=10)
+# Retrieve historical candlestick data
+klines = client.futures_historical_klines(symbol, interval, start_time.strftime("%Y-%m-%d %H:%M:%S"), end_time.strftime("%Y-%m-%d %H:%M:%S"))
 
-# Create buttons for digits and operators
-buttons = [
-    ('7', 1, 0), ('8', 1, 1), ('9', 1, 2), ('/', 1, 3),
-    ('4', 2, 0), ('5', 2, 1), ('6', 2, 2), ('*', 2, 3),
-    ('1', 3, 0), ('2', 3, 1), ('3', 3, 2), ('-', 3, 3),
-    ('0', 4, 0), ('.', 4, 1), ('=', 4, 2), ('+', 4, 3)
-]
+# Convert data to DataFrame
+columns = ["timestamp", "open", "high", "low", "close", "volume", "close_time", "quote_asset_volume", "number_of_trades", "taker_buy_base_asset_volume", "taker_buy_quote_asset_volume", "ignore"]
+df = pd.DataFrame(klines, columns=columns)
 
-# Function to add a digit or operator to the entry widget
-def add_to_entry(symbol):
-    current_text = entry.get()
-    entry.delete(0, tk.END)
-    entry.insert(0, current_text + symbol)
+# Convert timestamp to datetime
+df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
 
-# Loop to create buttons
-for (text, row, col) in buttons:
-    button = tk.Button(window, text=text, padx=20, pady=20, font=("Arial", 12),
-                        command=lambda t=text: add_to_entry(t))
-    button.grid(row=row, column=col, padx=5, pady=5)
+# Convert numeric columns to float
+numeric_columns = ['open', 'high', 'low', 'close', 'volume']
+df[numeric_columns] = df[numeric_columns].astype(float)
 
-# Create a label to display the result
-result_label = tk.Label(window, text="", padx=10, font=("Arial", 14))
-result_label.grid(row=5, column=0, columnspan=4)
+# Set datetime as index
+df.set_index('timestamp', inplace=True)
 
-# Create a button to calculate the result
-calc_button = tk.Button(window, text="Calculate", padx=20, pady=10, font=("Arial", 12),
-                        command=calculate)
-calc_button.grid(row=6, column=0, columnspan=4, pady=10)
+supports = df[df['low'] == df['low'].rolling(5, center=True).min()]
+resistances = df[df['high'] == df['high'].rolling(5, center=True).max()]
 
-# Run the Tkinter event loop
-window.mainloop()
+# Extracting support and resistance levels as lists
+support_levels = supports['low'].tolist()
+resistance_levels = resistances['high'].tolist()
+
+# Combine support and resistance levels into a single list
+
+levels = support_levels + resistance_levels
+# Convert levels list to pandas Series
+levels_series = pd.Series(levels)
+
+# Calculate difference between consecutive elements
+diff_levels = levels_series.diff()
+
+# Filter levels based on difference greater than 100
+#filtered_levels = levels_series[abs(diff_levels) > 500]
+
+# Convert filtered_levels back to list
+#levels = filtered_levels.tolist()
+
+# Plotting the candlestick chart
+#mpl.plot(df, type='candle', hlines=levels, style='charles')
+#print(klines_data.to_string(index=False))
+
+# Plot candlestick chart using mplfinance
+mpf.plot(df, type='candle', style='binance', title='BTCUSDT - 15m Candlestick', ylabel='Price (USDT)', volume=True, hlines=levels)
