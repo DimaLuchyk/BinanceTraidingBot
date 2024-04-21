@@ -44,5 +44,43 @@ average =  np.mean(df['high'] - df['low'])
 # Combine support and resistance levels into a single list
 levels = support_levels + resistance_levels
 
+print("levels before filter: ", levels)
+
 # Plot candlestick chart using mplfinance
+#mpf.plot(df, type='candle', style='binance', title='BTCUSDT - 15m Candlestick', ylabel='Price (USDT)', volume=True, hlines=dict(hlines=levels))
+
+s =  np.mean(df['high'] - df['low'])
+
+def isFarFromLevel(l):
+  return np.sum([abs(l-x) < s  for x in levels]) == 0
+
+def isSupport(df,i):
+  support = df['low'][i] < df['low'][i-1]  and df['low'][i] < df['low'][i+1] \
+  and df['low'][i+1] < df['low'][i+2] and df['low'][i-1] < df['low'][i-2]
+
+  return support
+
+def isResistance(df,i):
+  resistance = df['high'][i] > df['high'][i-1]  and df['high'][i] > df['high'][i+1] \
+  and df['high'][i+1] > df['high'][i+2] and df['high'][i-1] > df['high'][i-2] 
+
+  return resistance
+
+levels = []
+for i in range(2,df.shape[0]-2):
+  if isSupport(df,i):
+    l = df['low'][i]
+
+    if isFarFromLevel(l):
+      levels.append(l)
+
+  elif isResistance(df,i):
+    l = df['high'][i]
+
+    if isFarFromLevel(l):
+      levels.append(l)
+
+
+print("after filter: ", levels)
+
 mpf.plot(df, type='candle', style='binance', title='BTCUSDT - 15m Candlestick', ylabel='Price (USDT)', volume=True, hlines=dict(hlines=levels))
