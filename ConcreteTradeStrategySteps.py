@@ -116,37 +116,27 @@ class ConcreteStep3(TradeStrategyStep):
     def __detectBackInZone__(self, candle, data: TradeData.TradeData):
         df = data.getRawData()
 
-        breakSupportLevelIndex = df[df['pattern_detected'] == 1].tail(1).index
-        breakResistanceLevelIndex = df[df['pattern_detected'] == 2].tail(1).index
-        
+        breakResistanceLevelIndex = df[df['pattern_detected'] == 1].tail(1).index
+        breakSupportLevelIndex = df[df['pattern_detected'] == 2].tail(1).index
+        againInLevelZone = 0
+        if candle <= breakResistanceLevelIndex or candle <= breakSupportLevelIndex:
+            return againInLevelZone
         print("breakSUportLevelIndex: {}".format(breakSupportLevelIndex))
         print("breakResistanceLevelIndex: {}".format(breakResistanceLevelIndex))
 
-        againInLevelZone = 0
-
         if breakResistanceLevelIndex > breakSupportLevelIndex:
             print("resistance was break")
-            # get pivots of the resistance level that was break, not it's a potential support level
-            potentialSupportLevelPivots = data.getResistanceLevelPivots()
-            realSuportLineValue = sum(potentialSupportLevelPivots) / len(potentialSupportLevelPivots)
-            # Calculate the average range over the past ... periods
-            atrWindow = 14
-            atr = df['trueRange'].rolling(window=atrWindow).mean().iloc[candle]
-            zone_width = atr
+            # get the resistance line that was break, now it's a potential support line
+            potentialSupportLine = data.getResistanceTrendLine()
 
-            if abs(realSuportLineValue - df.loc[candle].close < zone_width):
+            if abs(potentialSupportLine.getRealTrendLineValue() - df.loc[candle].close) < potentialSupportLine.getTrendLineHalfZone():
                 againInLevelZone = 2
         elif breakSupportLevelIndex > breakResistanceLevelIndex:
             print("support was break")
-            # get pivots of the suport level that was break, not it's a potential resistance level
-            potentialResistanceLevelPivots = data.getSupportLevelPivots()
-            realResistanceLineValue = sum(potentialResistanceLevelPivots) / len(potentialResistanceLevelPivots)
-            # Calculate the average range over the past ... periods
-            atrWindow = 14
-            atr = df['trueRange'].rolling(window=atrWindow).mean().iloc[candle]
-            zone_width = atr
+            # get the suport level that was break, not it's a potential resistance line
+            potentialResistanceLine = data.getSupportTrendLine()
 
-            if abs(df.loc[candle].close - realResistanceLineValue < zone_width):
+            if abs(df.loc[candle].close - potentialResistanceLine.getRealTrendLineValue()) < potentialResistanceLine.getTrendLineHalfZone():
                 againInLevelZone = 1
         
         return againInLevelZone
@@ -166,38 +156,30 @@ class ConcreteStep4(TradeStrategyStep):
 
         againInPotentialResistanceLevelIndex = df[df['againInLevelZone'] == 1].tail(1).index
         againInPotentialSupportLevelIndex = df[df['againInLevelZone'] == 2].tail(1).index
-
+        
+        openTransaction = 0
+        if candle <= againInPotentialResistanceLevelIndex or candle <= againInPotentialSupportLevelIndex:
+            return openTransaction
+        
         print("againInPotentialResistanceLevelIndex: {}".format(againInPotentialResistanceLevelIndex))
         print("againInPotentialSupportLevelIndex: {}".format(againInPotentialSupportLevelIndex))
 
         openTransaction = 0
         if againInPotentialResistanceLevelIndex > againInPotentialSupportLevelIndex:
             print("againInPotentialResistanceLevelIndex")
-            # get pivots of the suport level that was break, not it's a potential resistance level
-            potentialResistanceLevelPivots = data.getSupportLevelPivots()
-            realResistanceLineValue = sum(potentialResistanceLevelPivots) / len(potentialResistanceLevelPivots)
-            # Calculate the average range over the past ... periods
-            atrWindow = 14
-            atr = df['trueRange'].rolling(window=atrWindow).mean().iloc[candle]
-            zone_width = atr
+            # get the suport level that was break, not it's a potential resistance level
+            potentialResistanceTrendLine = data.getSupportTrendLine()
+            diff = potentialResistanceTrendLine.getRealTrendLineValue() - df.loc[candle].close
 
-            diff = realResistanceLineValue - df.loc[candle].close
-
-            if diff > 0 and diff > zone_width:
+            if diff > 0 and diff > potentialResistanceTrendLine.getTrendLineHalfZone():
                 openTransaction = 1 #sell transaction
         elif againInPotentialSupportLevelIndex > againInPotentialResistanceLevelIndex:
             print("againInPotentialSupportLevelIndex")
-            # get pivots of the resistance level that was break, not it's a potential support level
-            potentialSupportLevelPivots = data.getResistanceLevelPivots()
-            realSuportLineValue = sum(potentialSupportLevelPivots) / len(potentialSupportLevelPivots)
-            # Calculate the average range over the past ... periods
-            atrWindow = 14
-            atr = df['trueRange'].rolling(window=atrWindow).mean().iloc[candle]
-            zone_width = atr
+            # get the resistance level that was break, not it's a potential support level
+            potentialSupportTrendLine = data.getResistanceTrendLine()
+            diff = df.loc[candle].close - potentialSupportTrendLine.getRealTrendLineValue()
 
-            diff = df.loc[candle].close - realSuportLineValue
-
-            if diff > 0 and diff > zone_width:
+            if diff > 0 and diff > potentialSupportTrendLine.getTrendLineHalfZone():
                 openTransaction = 2 #buy transaction
         
         return openTransaction
@@ -209,7 +191,7 @@ class ConcreteStep5(TradeStrategyStep):
 
     def process(self, data: TradeData.TradeData) -> None:
         df = data.getRawData()
-        df['openTransaction'] = df.apply(lambda row: self.__confirmNewSupportOrRessistanceLine__(row.name, data=data), axis=1)
+        df['openedTransaction'] = df.apply(lambda row: self.__makeTransaction__(row.name, data=data), axis=1)
         file_path = 'SUPRES.csv'
 
         # Write the DataFrame to a CSV file
@@ -221,39 +203,25 @@ class ConcreteStep5(TradeStrategyStep):
         openTransactionShortIndex = df[df['openTransaction'] == 1].tail(1).index
         openTransactionLongIndex = df[df['openTransaction'] == 2].tail(1).index
 
+        openedTransaction = 0
+        if candle < openTransactionShortIndex or candle < openTransactionLongIndex:
+            return openedTransaction
+
         print("openTransactionShortIndex: {}".format(openTransactionShortIndex))
         print("openTransactionLongIndex: {}".format(openTransactionLongIndex))
 
         if openTransactionLongIndex > openTransactionShortIndex:
             print("open long transaction")
+            #get resistance trand line that was break, now it is confirmed support trend line
+            supportTrendLine = data.getResistanceTrendLine()
+            openedTransaction = 2
+            print(self.binanceClient.openLong(ConfigurationReader.get("symbol"), 500, df.loc[candle].close, supportTrendLine.getRealTrendLineValue() - supportTrendLine.getTrendLineHalfZone()))
 
-            self.binanceClient.openLong(ConfigurationReader.get("symbol"), 500, df.loc[candle])
-            
-            # get pivots of the suport level that was break, not it's a potential resistance level
-            potentialResistanceLevelPivots = data.getSupportLevelPivots()
-            realResistanceLineValue = sum(potentialResistanceLevelPivots) / len(potentialResistanceLevelPivots)
-            # Calculate the average range over the past ... periods
-            atrWindow = 14
-            atr = df['trueRange'].rolling(window=atrWindow).mean().iloc[candle]
-            zone_width = atr
-
-            diff = realResistanceLineValue - df.loc[candle].close
-
-            if diff > 0 and diff > zone_width:
-                openTransaction = 1 #sell transaction
         elif openTransactionShortIndex > openTransactionLongIndex:
-            print("againInPotentialSupportLevelIndex")
-            # get pivots of the resistance level that was break, not it's a potential support level
-            potentialSupportLevelPivots = data.getResistanceLevelPivots()
-            realSuportLineValue = sum(potentialSupportLevelPivots) / len(potentialSupportLevelPivots)
-            # Calculate the average range over the past ... periods
-            atrWindow = 14
-            atr = df['trueRange'].rolling(window=atrWindow).mean().iloc[candle]
-            zone_width = atr
-
-            diff = df.loc[candle].close - realSuportLineValue
-
-            if diff > 0 and diff > zone_width:
-                openTransaction = 2 #buy transaction
+            print("open short transaction")
+            #get support trand line that was break, now it is confirmed resistance trend line
+            resistanceTrendLine = data.getSupportTrendLine()
+            openedTransaction = 1
+            print(self.binanceClient.openShort(ConfigurationReader.get("symbol"), 500, df.loc[candle].close, resistanceTrendLine.getRealTrendLineValue() + resistanceTrendLine.getTrendLineHalfZone()))
         
-        return openTransaction
+        return openedTransaction
