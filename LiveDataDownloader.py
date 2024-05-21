@@ -4,13 +4,16 @@ import json
 import SubjectOfInterest
 import DataObserver
 import TradeStrategy as ts
+import TradeData
+import logging
+
+logger = logging.getLogger(__name__)
 
 class LiveDataDownloader(SubjectOfInterest.SubjectOfInterest):
-    def __init__(self, endpoint):
+    def __init__(self, endpoint: str, dataObserver: DataObserver.DataObserver):
         self.endpoint = endpoint
         self.ws = websocket.WebSocketApp(endpoint, on_open=self.__onOpen__, on_message=self.__onMessage__, on_close=self.__onClose__)
-        tradeStrategy = ts.TradeStrategy()
-        self.attach(tradeStrategy)
+        self.subscribe(dataObserver)
 
 
     def __onOpen__(self, ws):
@@ -32,21 +35,42 @@ class LiveDataDownloader(SubjectOfInterest.SubjectOfInterest):
         high_data = kandle['h']
         is_closed = 1 if kandle_closed else 0
         if is_closed:
-            self.notify(pd.json_normalize(kandle))
+            logger.debug("new candle, notify subs")
+            dfCandle = pd.json_normalize(kandle)
+            dfCandleSelected = dfCandle[['t', 'o', 'h', 'l', 'c', 'T']]
+            new_names = {
+                't': 'timestamp',
+                'o': 'open',
+                'h': 'high',
+                'l': 'low',
+                'c': 'close',
+                'T': 'close_time'
+            }
+            dfCandleSelected = dfCandleSelected.rename(columns=new_names)
+            self.notify(dfCandleSelected)
     
     def notify(self, data: pd.DataFrame) -> None:
+        logger.debug("notify method call start")
+
+        if data.empty:
+            print("notify, received empty data")
+        else:
+            print("notify, received not empty data")
+
         for sub in self.subsribers:
             sub.update(data)
+        logger.debug("notify method call end")
     
-    def attach(self, observer: DataObserver) -> None:
+    def subscribe(self, observer: DataObserver) -> None:
         self.subsribers.append(observer)
         pass
 
-    def detach(self, observer: DataObserver) -> None:
+    def unsubscribe(self, observer: DataObserver) -> None:
         self.subsribers.remove(observer)
         pass
 
     def start(self):
+        logger.debug("start listening for data from websocket")
         self.ws.run_forever()
     
     subsribers: list[DataObserver.DataObserver] = []

@@ -4,11 +4,11 @@ import pandas as pd
 
 class SubjectOfInterest(ABC):
     @abstractmethod
-    def attach(self, observer: DataObserver) -> None:
+    def subscribe(self, observer: DataObserver) -> None:
         pass
 
     @abstractmethod
-    def detach(self, observer: DataObserver) -> None:
+    def unsubscribe(self, observer: DataObserver) -> None:
         pass
 
     @abstractmethod

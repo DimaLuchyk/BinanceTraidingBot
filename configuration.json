@@ -1,0 +1,10 @@
+{
+    "Testnet": "True",
+    "api_key": "9f284aad3af2daa858ea0cf471f5e3ff4d864bde21927a33fb38fe914e57269a",
+    "api_secret": "3244b9a49d5cbdd8918d9a2a041ff472e0a793941d40ca75684851a0badee35d",
+    "symbol": "BTCUSDT",
+    "interval": "1h",
+    "start_time": "2023-01-01T00:00:00",
+    "earn_percent": 60,
+    "loss_percent": 20
+}

@@ -1,25 +1,38 @@
 import pandas as pd
 from enum import Enum
+import logging
+import TrendLine
+
+logger = logging.getLogger(__name__)
 
 max_lines = 500
 
 class TradeData:
-    class TradeState(Enum):
-        UNKNOWN = -1
-        SET_SUP_RES = 0
-        LOCATE_BREAK = 1
-        #PRICE_IS_NEAR_NEW_SUP_OR_RES
-        #PRICE_MOVES_IN_RIGHT_DIRECTION
-    
-    def __init__(self, data: pd.DataFrame):
-        self.data = data.tail(max_lines)
-        self.state = TradeData.TradeState(TradeData.TradeState.UNKNOWN)
-    
-    def getState(self) -> TradeState:
-        return self.state
-    
-    def setState(self, state: TradeState) -> None:
-        self.state = state
+    def __init__(self):
+        self.data = pd.DataFrame()
+        self.resistanceTrendLine = TrendLine.TrendLine()
+        self.supportTrendLine = TrendLine.TrendLine()
 
-    def addKandle(self, kandle: pd.DataFrame) -> None:
-        self.data = pd.concat([self.data, kandle], ignore_index=True).tail(max_lines)
+    def setResistanceLine(self, values, trendLineHalfZone):
+        self.resistanceTrendLine.setTrendLineValues(TrendLine.TrendLineType.RESITANCE, values, trendLineHalfZone)
+    
+    def setSupportLine(self, values, trendLineHalfZone):
+        self.supportTrendLine.setTrendLineValues(TrendLine.TrendLineType.SUPPORT, values, trendLineHalfZone)
+    
+    def getResistanceTrendLine(self):
+        return self.resistanceTrendLine
+    
+    def getSupportTrendLine(self):
+        return self.supportTrendLine
+
+    def addCandle(self, candle: pd.DataFrame) -> None:
+        logger.debug("addCandle method call start")
+        self.data = pd.concat([self.data, candle], ignore_index=True).tail(max_lines)
+        print("data after adding candle: {}".format(self.data))
+        logger.debug("addCandle method call end")
+
+    def getLength(self) -> int:
+        return len(self.data)
+    
+    def getRawData(self) -> pd.DataFrame:
+        return self.data
