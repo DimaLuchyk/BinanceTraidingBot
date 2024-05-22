@@ -5,9 +5,6 @@ import DataObserver
 
 logger = logging.getLogger(__name__)
 
-api_key = 'HCjELFxQ0A49VqkckjWsZ8OoyKQDmLRWnybC0Jv6seUhdGCJglSNWNG90021jc3n'
-api_secret = 'gzbVrIp01e8gHRqgu4RICUrknZUWm9J6TBdeNDitpX4LJ00Z4gArF3PgxQZ73ujl'
-
 class HistoricalDataDownloader(SubjectOfInterest.SubjectOfInterest):
     def __init__(self, client, dataObserver: DataObserver.DataObserver):
         self.client = client
@@ -15,7 +12,7 @@ class HistoricalDataDownloader(SubjectOfInterest.SubjectOfInterest):
     
     def getBinanceHistoricalData(self, symbol, interval, startStr):
         logger.debug("getBinanceHistoricalData method call start")
-
+        logger.info("getBinanceHistoricalData. symbol: {}, interval: {}, startStr{}".format(symbol, interval, startStr))
         klines = self.client.get_historical_klines(symbol, interval, startStr)
 
         # Convert data to DataFrame
@@ -27,11 +24,6 @@ class HistoricalDataDownloader(SubjectOfInterest.SubjectOfInterest):
         #df.set_index('timestamp', inplace=True)
         selected_columns = ['timestamp', 'open', 'high', 'low', 'close', 'close_time']
         df_selected = df[selected_columns]
-        # Specify the file path where you want to write the DataFrame
-        file_path = 'output.csv'
-
-        # Write the DataFrame to a CSV file
-        df_selected.to_csv(file_path, index=False)
 
         self.notify(df_selected)
 

@@ -2,6 +2,9 @@ from binance.client import Client
 from binance.enums import *
 import math
 import ConfigurationReader
+import logging
+
+logger = logging.getLogger(__name__)
 
 class BinanceClient:
     def __init__(self, api_key, api_secret, testnet=False):
@@ -21,6 +24,7 @@ class BinanceClient:
         try:
             currentPrice = self.get_current_price(symbol)
             if isinstance(currentPrice, str):
+                logger.error("failed to receive current price of {}, error message: {}".format(symbol, currentPrice))
                 print("failed to receive current price of {}, error message: {}".format(symbol, currentPrice))
             quantity = self.usdtToQuantity(usdtQuantity, currentPrice)
             order = self.client.futures_create_order(
@@ -37,6 +41,7 @@ class BinanceClient:
         try:
             currentPrice = self.get_current_price(symbol)
             if isinstance(currentPrice, str):
+                logger.error("failed to receive current price of {}, error message: {}".format(symbol, currentPrice))
                 print("failed to receive current price of {}, error message: {}".format(symbol, currentPrice))
             quantity = self.usdtToQuantity(usdtQuantity, currentPrice)
             order = self.client.futures_create_order(
@@ -152,6 +157,7 @@ class BinanceClient:
         leverage = self.calculateLeverage(currentValue, stopLossValue)
         self.set_leverage(symbol, leverage)
         takeProfitValue = self.calculateTakeProfitForLong(currentValue, stopLossValue)
+        logger.info("open LONG, symbol: {}, quantity: {}, stopLossValue: {}, takeProfitValue: {}".format(symbol, quantity, stopLossValue, takeProfitValue))
         print("open LONG, symbol: {}, quantity: {}, stopLossValue: {}, takeProfitValue: {}".format(symbol, quantity, stopLossValue, takeProfitValue))
         return self.open_long_and_set_sp_tp(symbol, quantity, stopLossValue, takeProfitValue)
     
@@ -163,6 +169,7 @@ class BinanceClient:
         leverage = self.calculateLeverage(currentValue, stopLossValue)
         self.set_leverage(symbol, leverage)
         takeProfitValue = self.calculateTakeProfitForShort(currentValue, stopLossValue)
+        logger.info("open SHORT, symbol: {}, quantity: {}, stopLossValue: {}, takeProfitValue: {}".format(symbol, quantity, stopLossValue, takeProfitValue))
         print("open SHORT, symbol: {}, quantity: {}, stopLossValue: {}, takeProfitValue: {}".format(symbol, quantity, stopLossValue, takeProfitValue))
         return self.open_short_and_set_sp_tp(symbol, quantity, stopLossValue, takeProfitValue)
 
@@ -189,11 +196,6 @@ class BinanceClient:
             return balance_info
         except Exception as e:
             return f"An error occurred: {e}"
-
-api_key = "9f284aad3af2daa858ea0cf471f5e3ff4d864bde21927a33fb38fe914e57269a"
-api_secret = "3244b9a49d5cbdd8918d9a2a041ff472e0a793941d40ca75684851a0badee35d"
-
-symbol="BTCUSDT"
 
 #client = BinanceClient(api_key=api_key, api_secret=api_secret, testnet=True)
 #client.set_leverage(symbol, 20)

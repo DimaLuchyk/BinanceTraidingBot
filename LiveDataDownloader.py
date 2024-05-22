@@ -6,6 +6,7 @@ import DataObserver
 import TradeStrategy as ts
 import TradeData
 import logging
+import ConfigurationReader
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +19,14 @@ class LiveDataDownloader(SubjectOfInterest.SubjectOfInterest):
 
     def __onOpen__(self, ws):
         print("WebSocket connection opened.")
-        ws.send(json.dumps({"method": "SUBSCRIBE", "params": ["btcusdt@kline_1m"], "id": 1}))
+        symbol = ConfigurationReader.get("symbol")
+        interval = ConfigurationReader.get("interval")
+        symbolLower = symbol.lower()
+        params_string = f"{symbolLower}@kline_{interval}"
+
+        logger.info(f"about to send subscribe method to the websocket with the following params_string:{params_string}")
+
+        ws.send(json.dumps({"method": "SUBSCRIBE", "params": [params_string], "id": 1}))
 
     def __onClose__(self, ws):
         print("WebSocket connection closed.")
@@ -47,6 +55,11 @@ class LiveDataDownloader(SubjectOfInterest.SubjectOfInterest):
                 'T': 'close_time'
             }
             dfCandleSelected = dfCandleSelected.rename(columns=new_names)
+            # Add new columns with value 0
+            new_columns = ['isPivot', 'trueRange', 'pattern_detected', 'againInLevelZone', 'openTransaction', 'openedTransaction']
+            for column in new_columns:
+                dfCandleSelected[column] = 0
+            dfCandleSelected = dfCandleSelected.round(2)
             self.notify(dfCandleSelected)
     
     def notify(self, data: pd.DataFrame) -> None:
@@ -74,3 +87,5 @@ class LiveDataDownloader(SubjectOfInterest.SubjectOfInterest):
         self.ws.run_forever()
     
     subsribers: list[DataObserver.DataObserver] = []
+
+

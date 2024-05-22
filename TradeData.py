@@ -5,7 +5,7 @@ import TrendLine
 
 logger = logging.getLogger(__name__)
 
-max_lines = 500
+max_lines = 400
 
 class TradeData:
     def __init__(self):
@@ -27,6 +27,7 @@ class TradeData:
 
     def addCandle(self, candle: pd.DataFrame) -> None:
         logger.debug("addCandle method call start")
+        print("new_candle: {}".format(candle))
         self.data = pd.concat([self.data, candle], ignore_index=True).tail(max_lines)
         print("data after adding candle: {}".format(self.data))
         logger.debug("addCandle method call end")

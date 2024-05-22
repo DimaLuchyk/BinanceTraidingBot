@@ -3,18 +3,57 @@ import TradeData
 import pandas as pd
 import BinanceClient
 import ConfigurationReader
+import logging
+import os
 
+logger = logging.getLogger(__name__)
 
 class ConcreteStep1(TradeStrategyStep):
     def process(self, data: TradeData.TradeData) -> None:
         df = data.getRawData()
+        print("1. sizeof df: {}".format(len(df)))
         window = 5
-        df['isPivot'] = df.apply(lambda x: self.__isPivot__(x.name, window, data), axis=1)
+        df['isPivot'] = df.apply(lambda x: self.isPivot(x.name, window, data), axis=1)
         df['trueRange'] = df.apply(lambda x: self.__calculateTrueRange__(x.name, data), axis=1)
+    
+    def isPivot(self, candleIndex, window, dataR: TradeData.TradeData):
+        #return 0
+        print(f"index: {candleIndex}")
+        data = dataR.getRawData()
+        half_window = window // 2
+        print("d1")
+        if candleIndex < half_window or candleIndex >= len(data) - half_window:
+            # Not enough data to determine if it's a pivot
+            return 0
+
+        current_high = data.loc[candleIndex].high
+        current_low = data.loc[candleIndex].low
+        print("d2")
+        # Check for high pivot
+        is_high_pivot = True
+        for i in range(1, half_window + 1):
+            if current_high <= data.loc[candleIndex - i].high or current_high <= data.loc[candleIndex + i].high:
+                is_high_pivot = False
+                break
+        print("d3")
+        if is_high_pivot:
+            return 1
+        
+        # Check for low pivot
+        is_low_pivot = True
+        for i in range(1, half_window + 1):
+            if current_low >= data.loc[candleIndex - i].low or current_low >= data.loc[candleIndex + i].low:
+                is_low_pivot = False
+                break
+        print("d4")
+        if is_low_pivot:
+            return 2
+        
+        return 0
 
     def __calculateTrueRange__(self, candle, data: TradeData.TradeData):
         df = data.getRawData()
-    
+        
         # Ensure 'high', 'low', and 'close' columns are numeric
         df['high'] = pd.to_numeric(df['high'], errors='coerce')
         df['low'] = pd.to_numeric(df['low'], errors='coerce')
@@ -34,6 +73,7 @@ class ConcreteStep1(TradeStrategyStep):
         return true_range
 
     def __isPivot__(self, candle, window, data: TradeData.TradeData):
+        #return 0
         if (candle - window < 0 or candle + window >= data.getLength()):
             return 0
         pivotHigh = 1
@@ -59,6 +99,7 @@ class ConcreteStep1(TradeStrategyStep):
 class ConcreteStep2(TradeStrategyStep):
     def process(self, data: TradeData.TradeData) -> None:
         df = data.getRawData()
+        print("2. sizeof df: {}".format(len(df)))
         df['pattern_detected'] = df.apply(lambda row: self.__detect_structure__(row.name, backcandles=80, window=4, data=data), axis=1)
     
     def __detect_structure__(self, candle, backcandles, window, data: TradeData.TradeData):
@@ -66,7 +107,7 @@ class ConcreteStep2(TradeStrategyStep):
             return 0
         
         df = data.getRawData()
-
+        
         # Calculate the average range over the past ... periods
         atrWindow = 14
         atr = df['trueRange'].rolling(window=atrWindow).mean().iloc[candle]
@@ -111,6 +152,7 @@ class ConcreteStep2(TradeStrategyStep):
 class ConcreteStep3(TradeStrategyStep):
     def process(self, data: TradeData.TradeData) -> None:
         df = data.getRawData()
+        print("3. sizeof df: {}".format(len(df)))
         df['againInLevelZone'] = df.apply(lambda row: self.__detectBackInZone__(row.name, data=data), axis=1)
 
     def __detectBackInZone__(self, candle, data: TradeData.TradeData):
@@ -145,11 +187,8 @@ class ConcreteStep3(TradeStrategyStep):
 class ConcreteStep4(TradeStrategyStep):
     def process(self, data: TradeData.TradeData) -> None:
         df = data.getRawData()
+        print("4. sizeof df: {}".format(len(df)))
         df['openTransaction'] = df.apply(lambda row: self.__confirmNewSupportOrRessistanceLine__(row.name, data=data), axis=1)
-        file_path = 'SUPRES.csv'
-
-        # Write the DataFrame to a CSV file
-        df.to_csv(file_path, index=False)
 
     def __confirmNewSupportOrRessistanceLine__(self, candle, data: TradeData.TradeData):
         df = data.getRawData()
@@ -187,13 +226,17 @@ class ConcreteStep4(TradeStrategyStep):
 
 class ConcreteStep5(TradeStrategyStep):
     def __init__(self):
-        self.binanceClient = BinanceClient.BinanceClient(ConfigurationReader.get("api_key"), ConfigurationReader.get("api_secret"), testnet=ConfigurationReader.get("Testnet"))
+        self.binanceClient = BinanceClient.BinanceClient(ConfigurationReader.get("api_key"), ConfigurationReader.get("api_secret"), True)
 
     def process(self, data: TradeData.TradeData) -> None:
         df = data.getRawData()
+        print("5. sizeof df: {}".format(len(df)))
         df['openedTransaction'] = df.apply(lambda row: self.__makeTransaction__(row.name, data=data), axis=1)
-        file_path = 'SUPRES.csv'
-
+        file_path = 'backupfile.csv'
+        # Check if the file exists
+        if os.path.exists(file_path):
+            # Delete the file
+            os.remove(file_path)
         # Write the DataFrame to a CSV file
         df.to_csv(file_path, index=False)
 
@@ -215,13 +258,17 @@ class ConcreteStep5(TradeStrategyStep):
             #get resistance trand line that was break, now it is confirmed support trend line
             supportTrendLine = data.getResistanceTrendLine()
             openedTransaction = 2
-            print(self.binanceClient.openLong(ConfigurationReader.get("symbol"), 500, df.loc[candle].close, supportTrendLine.getRealTrendLineValue() - supportTrendLine.getTrendLineHalfZone()))
+            openResString = self.binanceClient.openLong(ConfigurationReader.get("symbol"), 500, df.loc[candle].close, supportTrendLine.getRealTrendLineValue() - supportTrendLine.getTrendLineHalfZone())
+            print(openResString)
+            logger.info(openResString)
 
         elif openTransactionShortIndex > openTransactionLongIndex:
             print("open short transaction")
             #get support trand line that was break, now it is confirmed resistance trend line
             resistanceTrendLine = data.getSupportTrendLine()
             openedTransaction = 1
-            print(self.binanceClient.openShort(ConfigurationReader.get("symbol"), 500, df.loc[candle].close, resistanceTrendLine.getRealTrendLineValue() + resistanceTrendLine.getTrendLineHalfZone()))
+            openResString = self.binanceClient.openShort(ConfigurationReader.get("symbol"), 500, df.loc[candle].close, resistanceTrendLine.getRealTrendLineValue() + resistanceTrendLine.getTrendLineHalfZone())
+            print(openResString)
+            logger.info(openResString)
         
         return openedTransaction

@@ -6,31 +6,40 @@ import pandas as pd
 import TradeStrategy as ts
 import TradeData as td
 import ConcreteTradeStrategySteps as steps
-import SubjectOfInterest
-import DataObserver
+import ConfigurationReader
+import logging
 
-api_key = 'HCjELFxQ0A49VqkckjWsZ8OoyKQDmLRWnybC0Jv6seUhdGCJglSNWNG90021jc3n'
-api_secret = 'gzbVrIp01e8gHRqgu4RICUrknZUWm9J6TBdeNDitpX4LJ00Z4gArF3PgxQZ73ujl'
-symbol = "BTCUSDT"
-interval = "1m"
+logger = logging.getLogger(__name__)
 
-startTime = (dt.datetime.now(dt.UTC) - dt.timedelta(minutes=60)).strftime("%Y-%m-%d %H:%M:%S")
+startTime = (dt.datetime.now(dt.UTC) - dt.timedelta(minutes=10)).strftime("%Y-%m-%d %H:%M:%S")
 
 endpoint = "wss://stream.binance.com:443/ws"
 
 class BinanceDataReceiver:
     def __init__(self):
-        client = Client(api_key, api_secret)
+        api_key = ConfigurationReader.get("api_key")
+        api_secret = ConfigurationReader.get("api_secret")
+        testnet = ConfigurationReader.get("testnet")
+        logger.info("about to start client for HistoricalDataDownloader with the following settings. api_key: {}, api_secret: {}, testnet: {}".format(api_key, api_secret, testnet))
+        client = Client(api_key, api_secret, testnet=True)
 
         tradeData = td.TradeData()
         tradeStrategy = ts.TradeStrategy(tradeData)
         tradeStrategy.addStep(steps.ConcreteStep1())
         tradeStrategy.addStep(steps.ConcreteStep2())
         tradeStrategy.addStep(steps.ConcreteStep3())
+        tradeStrategy.addStep(steps.ConcreteStep4())
+        tradeStrategy.addStep(steps.ConcreteStep5())
 
         self.historicalDataDownloader = hdd.HistoricalDataDownloader(client, tradeStrategy)
+
+        logger.info("endpoint for liveDataDownloader: {}".format(endpoint))
+
         self.liveDataDownloader = ldd.LiveDataDownloader(endpoint, tradeStrategy)
     
     def start(self):
-        self.historicalDataDownloader.getBinanceHistoricalData(symbol, interval, startTime)
+        symbol = ConfigurationReader.get("symbol")
+        interval = ConfigurationReader.get("interval")
+
+        #self.historicalDataDownloader.getBinanceHistoricalData(symbol, interval, startTime)
         self.liveDataDownloader.start()
