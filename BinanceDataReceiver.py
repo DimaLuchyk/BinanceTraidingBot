@@ -11,9 +11,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-startTime = (dt.datetime.now(dt.UTC) - dt.timedelta(minutes=10)).strftime("%Y-%m-%d %H:%M:%S")
+startTime = (dt.datetime.now(dt.UTC) - dt.timedelta(minutes=90)).strftime("%Y-%m-%d %H:%M:%S")
 
-endpoint = "wss://stream.binance.com:443/ws"
+endpoint = "wss://stream.binancefuture.com:443/ws"
 
 class BinanceDataReceiver:
     def __init__(self):
@@ -41,5 +41,5 @@ class BinanceDataReceiver:
         symbol = ConfigurationReader.get("symbol")
         interval = ConfigurationReader.get("interval")
 
-        #self.historicalDataDownloader.getBinanceHistoricalData(symbol, interval, startTime)
+        self.historicalDataDownloader.getBinanceHistoricalData(symbol, interval, startTime)
         self.liveDataDownloader.start()

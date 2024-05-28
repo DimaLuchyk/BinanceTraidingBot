@@ -5,6 +5,7 @@ import BinanceClient
 import ConfigurationReader
 import logging
 import os
+import math
 
 logger = logging.getLogger(__name__)
 
@@ -12,30 +13,28 @@ class ConcreteStep1(TradeStrategyStep):
     def process(self, data: TradeData.TradeData) -> None:
         df = data.getRawData()
         print("1. sizeof df: {}".format(len(df)))
-        window = 5
+        window = 3
         df['isPivot'] = df.apply(lambda x: self.isPivot(x.name, window, data), axis=1)
         df['trueRange'] = df.apply(lambda x: self.__calculateTrueRange__(x.name, data), axis=1)
     
     def isPivot(self, candleIndex, window, dataR: TradeData.TradeData):
-        #return 0
-        print(f"index: {candleIndex}")
         data = dataR.getRawData()
         half_window = window // 2
-        print("d1")
+
         if candleIndex < half_window or candleIndex >= len(data) - half_window:
             # Not enough data to determine if it's a pivot
             return 0
 
         current_high = data.loc[candleIndex].high
         current_low = data.loc[candleIndex].low
-        print("d2")
+
         # Check for high pivot
         is_high_pivot = True
         for i in range(1, half_window + 1):
             if current_high <= data.loc[candleIndex - i].high or current_high <= data.loc[candleIndex + i].high:
                 is_high_pivot = False
                 break
-        print("d3")
+
         if is_high_pivot:
             return 1
         
@@ -45,7 +44,7 @@ class ConcreteStep1(TradeStrategyStep):
             if current_low >= data.loc[candleIndex - i].low or current_low >= data.loc[candleIndex + i].low:
                 is_low_pivot = False
                 break
-        print("d4")
+
         if is_low_pivot:
             return 2
         
@@ -111,7 +110,7 @@ class ConcreteStep2(TradeStrategyStep):
         # Calculate the average range over the past ... periods
         atrWindow = 14
         atr = df['trueRange'].rolling(window=atrWindow).mean().iloc[candle]
-        halfZone = atr
+        halfZone = atr * 4
 
         print("halfZone: {}".format(halfZone))
 
@@ -161,8 +160,19 @@ class ConcreteStep3(TradeStrategyStep):
         breakResistanceLevelIndex = df[df['pattern_detected'] == 1].tail(1).index
         breakSupportLevelIndex = df[df['pattern_detected'] == 2].tail(1).index
         againInLevelZone = 0
+
+        if breakResistanceLevelIndex.empty and breakSupportLevelIndex.empty:
+            return againInLevelZone
+
+        if breakResistanceLevelIndex.empty:
+            breakResistanceLevelIndex = pd.Index([df.index[0]])  # Setting the first index as default
+
+        if breakSupportLevelIndex.empty:
+            breakSupportLevelIndex = pd.Index([df.index[0]])  # Setting the first index as default
+
         if candle <= breakResistanceLevelIndex or candle <= breakSupportLevelIndex:
             return againInLevelZone
+
         print("breakSUportLevelIndex: {}".format(breakSupportLevelIndex))
         print("breakResistanceLevelIndex: {}".format(breakResistanceLevelIndex))
 
@@ -195,15 +205,23 @@ class ConcreteStep4(TradeStrategyStep):
 
         againInPotentialResistanceLevelIndex = df[df['againInLevelZone'] == 1].tail(1).index
         againInPotentialSupportLevelIndex = df[df['againInLevelZone'] == 2].tail(1).index
-        
+
         openTransaction = 0
+        if againInPotentialResistanceLevelIndex.empty and againInPotentialSupportLevelIndex.empty:
+            return openTransaction
+
+        if againInPotentialResistanceLevelIndex.empty:
+            againInPotentialResistanceLevelIndex = pd.Index([df.index[0]])  # Setting the first index as default
+
+        if againInPotentialSupportLevelIndex.empty:
+            againInPotentialSupportLevelIndex = pd.Index([df.index[0]])  # Setting the first index as default
+
         if candle <= againInPotentialResistanceLevelIndex or candle <= againInPotentialSupportLevelIndex:
             return openTransaction
         
         print("againInPotentialResistanceLevelIndex: {}".format(againInPotentialResistanceLevelIndex))
         print("againInPotentialSupportLevelIndex: {}".format(againInPotentialSupportLevelIndex))
 
-        openTransaction = 0
         if againInPotentialResistanceLevelIndex > againInPotentialSupportLevelIndex:
             print("againInPotentialResistanceLevelIndex")
             # get the suport level that was break, not it's a potential resistance level
@@ -247,6 +265,14 @@ class ConcreteStep5(TradeStrategyStep):
         openTransactionLongIndex = df[df['openTransaction'] == 2].tail(1).index
 
         openedTransaction = 0
+        if openTransactionShortIndex.empty and openTransactionLongIndex.empty:
+            return openedTransaction
+
+        if openTransactionShortIndex.empty:
+            openTransactionShortIndex = pd.Index([df.index[0]])  # Setting the first index as default
+
+        if openTransactionLongIndex.empty:
+            openTransactionLongIndex = pd.Index([df.index[0]])  # Setting the first index as default
         if candle < openTransactionShortIndex or candle < openTransactionLongIndex:
             return openedTransaction
 
@@ -258,7 +284,7 @@ class ConcreteStep5(TradeStrategyStep):
             #get resistance trand line that was break, now it is confirmed support trend line
             supportTrendLine = data.getResistanceTrendLine()
             openedTransaction = 2
-            openResString = self.binanceClient.openLong(ConfigurationReader.get("symbol"), 500, df.loc[candle].close, supportTrendLine.getRealTrendLineValue() - supportTrendLine.getTrendLineHalfZone())
+            openResString = self.binanceClient.openLong(ConfigurationReader.get("symbol"), ConfigurationReader.get("margin_per_position"), df.loc[candle].close, math.floor(supportTrendLine.getRealTrendLineValue() - supportTrendLine.getTrendLineHalfZone()))
             print(openResString)
             logger.info(openResString)
 
@@ -267,7 +293,7 @@ class ConcreteStep5(TradeStrategyStep):
             #get support trand line that was break, now it is confirmed resistance trend line
             resistanceTrendLine = data.getSupportTrendLine()
             openedTransaction = 1
-            openResString = self.binanceClient.openShort(ConfigurationReader.get("symbol"), 500, df.loc[candle].close, resistanceTrendLine.getRealTrendLineValue() + resistanceTrendLine.getTrendLineHalfZone())
+            openResString = self.binanceClient.openShort(ConfigurationReader.get("symbol"), ConfigurationReader.get("margin_per_position"), df.loc[candle].close, math.floor(resistanceTrendLine.getRealTrendLineValue() + resistanceTrendLine.getTrendLineHalfZone()))
             print(openResString)
             logger.info(openResString)
         

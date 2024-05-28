@@ -24,6 +24,10 @@ class HistoricalDataDownloader(SubjectOfInterest.SubjectOfInterest):
         #df.set_index('timestamp', inplace=True)
         selected_columns = ['timestamp', 'open', 'high', 'low', 'close', 'close_time']
         df_selected = df[selected_columns]
+        df_selected['open'] = df_selected['open'].astype(float)
+        df_selected['high'] = df_selected['high'].astype(float)
+        df_selected['low'] = df_selected['low'].astype(float)
+        df_selected['close'] = df_selected['close'].astype(float)
 
         self.notify(df_selected)
 

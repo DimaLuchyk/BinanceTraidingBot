@@ -5,11 +5,11 @@ import TrendLine
 
 logger = logging.getLogger(__name__)
 
-max_lines = 400
+max_lines = 500
 
 class TradeData:
     def __init__(self):
-        self.data = pd.DataFrame()
+        self.data = pd.DataFrame(columns=['timestamp', 'open', 'high', 'low', 'close', 'close_time', 'isPivot', 'trueRange', 'pattern_detected', 'againInLevelZone', 'openTransaction', 'openedTransaction'])
         self.resistanceTrendLine = TrendLine.TrendLine()
         self.supportTrendLine = TrendLine.TrendLine()
 
@@ -28,9 +28,19 @@ class TradeData:
     def addCandle(self, candle: pd.DataFrame) -> None:
         logger.debug("addCandle method call start")
         print("new_candle: {}".format(candle))
-        self.data = pd.concat([self.data, candle], ignore_index=True).tail(max_lines)
+        #self.data = pd.concat([self.data, candle], ignore_index=True).tail(max_lines)
+
+        new_row = {'timestamp': candle.loc[0].timestamp, 'open': candle.loc[0].open, 'high': candle.loc[0].high, 'low': candle.loc[0].low, 'close': candle.loc[0].close, 'close_time': candle.loc[0].close_time, 'isPivot': 0, 'trueRange': 0, 'pattern_detected': 0, 'againInLevelZone': 0, 'openTransaction': 0, 'openedTransaction': 0}
+        self.data.loc[len(self.data)] = new_row
+        self.data = self.data.tail(max_lines)
         print("data after adding candle: {}".format(self.data))
         logger.debug("addCandle method call end")
+
+    def addCandles(self, candles: pd.DataFrame) -> None:
+        logger.debug("addCandles method call start")
+        self.data = pd.concat([self.data, candles], ignore_index=True).tail(max_lines)
+        logger.debug("addCandles method call start")
+        
 
     def getLength(self) -> int:
         return len(self.data)

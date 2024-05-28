@@ -60,10 +60,18 @@ class LiveDataDownloader(SubjectOfInterest.SubjectOfInterest):
             for column in new_columns:
                 dfCandleSelected[column] = 0
             dfCandleSelected = dfCandleSelected.round(2)
+            dfCandleSelected['open'] = dfCandleSelected['open'].astype(float)
+            dfCandleSelected['high'] = dfCandleSelected['high'].astype(float)
+            dfCandleSelected['low'] = dfCandleSelected['low'].astype(float)
+            dfCandleSelected['close'] = dfCandleSelected['close'].astype(float)
+            print(f"dfCnadleSelected: open{dfCandleSelected.loc[0].open}, high{dfCandleSelected.loc[0].high}, low{dfCandleSelected.loc[0].low}")
             self.notify(dfCandleSelected)
     
     def notify(self, data: pd.DataFrame) -> None:
         logger.debug("notify method call start")
+
+        print(f"high: {data.loc[0].high}")
+        print(f"low: {data.loc[0].low}")
 
         if data.empty:
             print("notify, received empty data")

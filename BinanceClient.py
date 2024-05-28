@@ -159,7 +159,7 @@ class BinanceClient:
         takeProfitValue = self.calculateTakeProfitForLong(currentValue, stopLossValue)
         logger.info("open LONG, symbol: {}, quantity: {}, stopLossValue: {}, takeProfitValue: {}".format(symbol, quantity, stopLossValue, takeProfitValue))
         print("open LONG, symbol: {}, quantity: {}, stopLossValue: {}, takeProfitValue: {}".format(symbol, quantity, stopLossValue, takeProfitValue))
-        return self.open_long_and_set_sp_tp(symbol, quantity, stopLossValue, takeProfitValue)
+        return self.open_long_and_set_sp_tp(symbol, quantity * leverage, stopLossValue, takeProfitValue)
     
     def openShort(self, symbol: str, usdtQuantity: int, currentValue: int, stopLossValue: int):
         currentPrice = self.get_current_price(symbol)
@@ -171,7 +171,7 @@ class BinanceClient:
         takeProfitValue = self.calculateTakeProfitForShort(currentValue, stopLossValue)
         logger.info("open SHORT, symbol: {}, quantity: {}, stopLossValue: {}, takeProfitValue: {}".format(symbol, quantity, stopLossValue, takeProfitValue))
         print("open SHORT, symbol: {}, quantity: {}, stopLossValue: {}, takeProfitValue: {}".format(symbol, quantity, stopLossValue, takeProfitValue))
-        return self.open_short_and_set_sp_tp(symbol, quantity, stopLossValue, takeProfitValue)
+        return self.open_short_and_set_sp_tp(symbol, quantity * leverage, stopLossValue, takeProfitValue)
 
     def set_leverage(self, symbol, leverage):
         try:

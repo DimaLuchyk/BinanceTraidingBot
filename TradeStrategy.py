@@ -19,8 +19,10 @@ class TradeStrategy(DataObserver.DataObserver):
 
     def update(self, data: pd.DataFrame) -> None:
         logger.debug("update method call start")
-
-        self.data.addCandle(data)
+        if len(data) == 1:
+            self.data.addCandle(data)
+        else:
+            self.data.addCandles(data)
         self.process(self.data)
 
         logger.debug("update method call end")
@@ -39,4 +41,4 @@ class TradeStrategy(DataObserver.DataObserver):
         for step in self.steps:
             step.process(data)
         
-        logger.debug("process method call start")
+        logger.debug("process method call end")
